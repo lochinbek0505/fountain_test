@@ -26,13 +26,16 @@ class FountainScreen extends StatefulWidget {
 class _FountainScreenState extends State<FountainScreen>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
-  late final List<FountainStream> _streams;
+  late List<FountainStream> _streams;
+
+  bool _isRunning = false;
+  Duration _elapsed = Duration.zero;
 
   @override
   void initState() {
     super.initState();
     _streams = _createFountainStreams();
-    _ticker = createTicker(_tick)..start();
+    _ticker = createTicker(_tick);
   }
 
   List<FountainStream> _createFountainStreams() {
@@ -46,7 +49,7 @@ class _FountainScreenState extends State<FountainScreen>
       final dy = center.dy + sin(angle) * radius;
       final origin = Offset(dx, dy);
 
-      final delay = i * 0.1; // zinapoya effekti uchun vaqt kechikishi
+      final delay = i * 0.1;
       list.add(FountainStream(origin, i, delay));
     }
 
@@ -54,10 +57,32 @@ class _FountainScreenState extends State<FountainScreen>
   }
 
   void _tick(Duration elapsed) {
+    if (!_isRunning) return;
+    _elapsed = elapsed;
     setState(() {
       for (final stream in _streams) {
-        stream.update(elapsed);
+        stream.update(_elapsed);
       }
+    });
+  }
+
+  void _start() {
+    if (!_ticker.isActive) _ticker.start();
+    setState(() {
+      _isRunning = true;
+    });
+  }
+
+  void _pause() {
+    setState(() {
+      _isRunning = false;
+    });
+  }
+
+  void _stop() {
+    setState(() {
+      _isRunning = false;
+      _streams = _createFountainStreams(); // Reset all
     });
   }
 
@@ -69,11 +94,47 @@ class _FountainScreenState extends State<FountainScreen>
 
   @override
   Widget build(BuildContext context) {
+
+
     return Scaffold(
       backgroundColor: Colors.black,
-      body: CustomPaint(
-        painter: LaminarFountainPainter(_streams),
-        size: Size.infinite,
+      body: Stack(
+        children: [
+          CustomPaint(
+            painter: LaminarFountainPainter(_streams),
+            size: Size.infinite,
+          ),
+          Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _start,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text("Start"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: _pause,
+                  icon: const Icon(Icons.pause),
+                  label: const Text("Pause"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: _stop,
+                  icon: const Icon(Icons.stop),
+                  label: const Text("Stop"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -92,7 +153,7 @@ class FountainStream {
   final int count = 20;
   final List<StreamParticle> particles = [];
   final double baseHeight;
-  final double delay; // zinapoya effekti uchun kechikish
+  final double delay;
   double time = 0.0;
 
   FountainStream(this.origin, int index, this.delay)
@@ -104,8 +165,7 @@ class FountainStream {
 
   void update(Duration elapsed) {
     time = elapsed.inMilliseconds / 1000.0;
-
-    final wave = 0.5 + 0.5 * sin((time - delay) * 2 * pi / 2); // 2s lik sinus to‘lqin
+    final wave = 0.5 + 0.5 * sin((time - delay) * 2 * pi / 2);
     final height = baseHeight * wave;
 
     for (var p in particles) {
@@ -129,7 +189,6 @@ class LaminarFountainPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..isAntiAlias = true;
 
-    // Background decoration
     paint.color = Colors.teal;
     canvas.drawCircle(const Offset(200, 400), 140, paint);
 
